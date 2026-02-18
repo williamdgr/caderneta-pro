@@ -1,7 +1,6 @@
 import customtkinter as ctk
 import ctypes
 from PIL import Image
-from app_info import APP_NAME, APP_VERSION
 
 
 class SplashScreen(ctk.CTkToplevel):
@@ -33,17 +32,6 @@ class SplashScreen(ctk.CTkToplevel):
         except Exception:
             self._width, self._height = self.get_fitted_size(self._width, self._height)
             self.configure(fg_color="#1f2937")
-            ctk.CTkLabel(self, text=APP_NAME, font=("Arial", 26, "bold")).pack(expand=True, padx=20, pady=(70, 6))
-            ctk.CTkLabel(self, text="Carregando...", font=("Arial", 14)).pack(pady=(0, 40))
-
-        self.version_label = ctk.CTkLabel(
-            self,
-            text=f"v{APP_VERSION}",
-            font=("Arial", 12, "bold"),
-            text_color="#E5E7EB",
-            fg_color="transparent",
-        )
-        self.version_label.place(relx=0.98, rely=0.97, anchor="se")
 
         self.center_on_screen(self._width, self._height)
         self.after(20, lambda: self.center_on_screen(self._width, self._height))

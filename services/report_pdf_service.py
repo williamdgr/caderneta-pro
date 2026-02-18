@@ -2,7 +2,7 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-from database.connection import get_connection
+from database.connection import get_connection, get_db_path
 from services.dashboard_service import get_dashboard_data
 
 from reportlab.lib import colors
@@ -12,7 +12,9 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 
 
 def _reports_dir():
-    reports_path = Path("reports")
+    db_path = get_db_path()
+    app_base_dir = db_path.parent.parent
+    reports_path = app_base_dir / "reports"
     reports_path.mkdir(parents=True, exist_ok=True)
     return reports_path
 
@@ -29,6 +31,13 @@ def _sanitize_filename(text):
     sanitized = re.sub(r"[^a-zA-Z0-9_-]+", "_", text.strip().lower())
     sanitized = re.sub(r"_+", "_", sanitized).strip("_")
     return sanitized or "cliente"
+
+
+def _format_cpf(value):
+    digits = re.sub(r"\D", "", str(value or ""))[:11]
+    if len(digits) != 11:
+        return value or "-"
+    return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:11]}"
 
 
 def _base_table_style():
@@ -157,17 +166,31 @@ def _get_client_statement_data(client_id):
     return rows
 
 
+def _get_client_basic_data(client_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, cpf FROM clients WHERE id = ?", (client_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row
+
+
 def export_client_statement_pdf(client_id, client_name):
+    client_data = _get_client_basic_data(client_id)
+    display_name = client_data["name"] if client_data and client_data["name"] else client_name
+    cpf_display = _format_cpf(client_data["cpf"] if client_data else "")
+
     rows = _get_client_statement_data(client_id)
 
-    report_path = _reports_dir() / f"extrato_{_sanitize_filename(client_name)}_{_timestamp()}.pdf"
+    report_path = _reports_dir() / f"extrato_{_sanitize_filename(display_name)}_{_timestamp()}.pdf"
     doc = SimpleDocTemplate(str(report_path), pagesize=A4)
     styles = getSampleStyleSheet()
 
     elements = [
         Paragraph("Extrato do Cliente", styles["Title"]),
         Spacer(1, 8),
-        Paragraph(f"Cliente: {client_name}", styles["Normal"]),
+        Paragraph(f"Cliente: {display_name}", styles["Normal"]),
+        Paragraph(f"CPF: {cpf_display}", styles["Normal"]),
         Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
         Spacer(1, 16),
     ]

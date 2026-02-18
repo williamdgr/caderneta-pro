@@ -8,22 +8,22 @@ def get_all_clients():
     conn.close()
     return rows
 
-def create_client(name, phone, credit_limit):
+def create_client(name, cpf, phone, credit_limit):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO clients (name, phone, credit_limit) VALUES (?, ?, ?)",
-        (name, phone, credit_limit)
+        "INSERT INTO clients (name, cpf, phone, credit_limit) VALUES (?, ?, ?, ?)",
+        (name, cpf, phone, credit_limit)
     )
     conn.commit()
     conn.close()
 
-def update_client(client_id, name, phone, credit_limit):
+def update_client(client_id, name, cpf, phone, credit_limit):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE clients SET name = ?, phone = ?, credit_limit = ? WHERE id = ?",
-        (name, phone, credit_limit, client_id)
+        "UPDATE clients SET name = ?, cpf = ?, phone = ?, credit_limit = ? WHERE id = ?",
+        (name, cpf, phone, credit_limit, client_id)
     )
     conn.commit()
     conn.close()

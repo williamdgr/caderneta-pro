@@ -8,10 +8,16 @@ def init_db():
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
+            cpf TEXT,
             phone TEXT,
             credit_limit REAL DEFAULT 0
         )
     """)
+
+    cursor.execute("PRAGMA table_info(clients)")
+    clients_columns = [column["name"] for column in cursor.fetchall()]
+    if "cpf" not in clients_columns:
+        cursor.execute("ALTER TABLE clients ADD COLUMN cpf TEXT")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sales (

@@ -52,7 +52,7 @@ class ReportsView(ctk.CTkFrame):
         self.status_label = ctk.CTkLabel(self, text="", text_color="green")
         self.status_label.pack(pady=(0, 8))
 
-        ctk.CTkLabel(self, text="Prévia de Saldos em Aberto", font=("Arial", 16, "bold")).pack(pady=(2, 6))
+        ctk.CTkLabel(self, text="Prévia de Saldos Devedores por Cliente", font=("Arial", 16, "bold")).pack(pady=(2, 6))
 
         style = ttk.Style()
         style.configure("Table.Treeview", rowheight=28, borderwidth=1, relief="solid")
@@ -60,7 +60,7 @@ class ReportsView(ctk.CTkFrame):
 
         self.tree = ttk.Treeview(self, columns=("Cliente","Saldo"), show="headings", style="Table.Treeview")
         self.tree.heading("Cliente", text="Cliente", anchor="center")
-        self.tree.heading("Saldo", text="Saldo em Aberto", anchor="center")
+        self.tree.heading("Saldo", text="Saldo Devedor", anchor="center")
         self.tree.column("Cliente", anchor="center")
         self.tree.column("Saldo", anchor="center")
         self.tree.tag_configure("evenrow", background="#FFFFFF")

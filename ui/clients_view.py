@@ -32,9 +32,13 @@ class ClientsView(ctk.CTkFrame):
         self.name_entry = ctk.CTkEntry(fields_row, placeholder_text="Nome")
         self.name_entry.pack(side="left", padx=5)
 
+        self.cpf_entry = ctk.CTkEntry(fields_row, placeholder_text="CPF")
+        self.cpf_entry.pack(side="left", padx=5)
+        self.cpf_entry.bind("<KeyRelease>", self.mask_cpf)
+
         self.phone_entry = ctk.CTkEntry(fields_row, placeholder_text="Telefone")
         self.phone_entry.pack(side="left", padx=5)
-        self.phone_entry.bind("<KeyRelease>", self.only_digits_phone)
+        self.phone_entry.bind("<KeyRelease>", self.mask_phone)
 
         self.limit_entry = ctk.CTkEntry(fields_row, placeholder_text="Limite Crédito")
         self.limit_entry.pack(side="left", padx=5)
@@ -58,8 +62,8 @@ class ClientsView(ctk.CTkFrame):
         style.configure("Table.Treeview", rowheight=28, borderwidth=1, relief="solid")
         style.configure("Table.Treeview.Heading", relief="solid")
 
-        self.tree = ttk.Treeview(self, columns=("ID","Nome","Telefone","Limite"), show="headings", style="Table.Treeview")
-        for col in ("ID","Nome","Telefone","Limite"):
+        self.tree = ttk.Treeview(self, columns=("ID","Nome","CPF","Telefone","Limite"), show="headings", style="Table.Treeview")
+        for col in ("ID","Nome","CPF","Telefone","Limite"):
             self.tree.heading(col, text=col, anchor="center")
             self.tree.column(col, anchor="center")
         self.tree.bind("<<TreeviewSelect>>", self.on_select_client)
@@ -80,7 +84,8 @@ class ClientsView(ctk.CTkFrame):
             self.tree.insert("", "end", values=(
                 client["id"],
                 display_name,
-                client["phone"],
+                self.format_cpf(client["cpf"]),
+                self.format_phone(client["phone"]),
                 display_limit
             ), tags=(tag,))
 
@@ -97,19 +102,28 @@ class ClientsView(ctk.CTkFrame):
 
     def validate_form(self):
         name = self.name_entry.get().strip()
-        phone = self.phone_entry.get().strip()
+        cpf = re.sub(r"\D", "", self.cpf_entry.get().strip())
+        phone = re.sub(r"\D", "", self.phone_entry.get().strip())
         raw_limit = (self.limit_entry.get() or "").strip()
 
         if not name:
             self.show_error("Erro: informe o nome.")
             return None
 
+        if not cpf:
+            self.show_error("Erro: informe o CPF.")
+            return None
+
+        if len(cpf) != 11:
+            self.show_error("Erro: CPF inválido. Informe 11 números.")
+            return None
+
         if not phone:
             self.show_error("Erro: informe o telefone.")
             return None
 
-        if not phone.isdigit():
-            self.show_error("Erro: telefone inválido. Use apenas números.")
+        if len(phone) not in (10, 11):
+            self.show_error("Erro: telefone inválido. Informe 10 ou 11 números.")
             return None
 
         if not raw_limit:
@@ -121,18 +135,18 @@ class ClientsView(ctk.CTkFrame):
             return None
 
         credit_limit = float(raw_limit.replace(",", "."))
-        return name, phone, credit_limit
+        return name, cpf, phone, credit_limit
 
     def save_client(self):
         validated_data = self.validate_form()
         if not validated_data:
             return
 
-        name, phone, credit_limit = validated_data
+        name, cpf, phone, credit_limit = validated_data
 
         self.clear_error()
 
-        create_client(name, phone, credit_limit)
+        create_client(name, cpf, phone, credit_limit)
 
         self.reset_form()
         self.load_clients()
@@ -147,10 +161,10 @@ class ClientsView(ctk.CTkFrame):
         if not validated_data:
             return
 
-        name, phone, credit_limit = validated_data
+        name, cpf, phone, credit_limit = validated_data
 
         self.clear_error()
-        update_client(self.selected_client_id, name, phone, credit_limit)
+        update_client(self.selected_client_id, name, cpf, phone, credit_limit)
         self.reset_form()
         self.load_clients()
         self.show_success("Cliente atualizado com sucesso.")
@@ -192,11 +206,14 @@ class ClientsView(ctk.CTkFrame):
         self.name_entry.delete(0, "end")
         self.name_entry.insert(0, selected_name)
 
+        self.cpf_entry.delete(0, "end")
+        self.cpf_entry.insert(0, values[2])
+
         self.phone_entry.delete(0, "end")
-        self.phone_entry.insert(0, values[2])
+        self.phone_entry.insert(0, values[3])
 
         self.limit_entry.delete(0, "end")
-        self.limit_entry.insert(0, self.parse_currency(values[3]))
+        self.limit_entry.insert(0, self.parse_currency(values[4]))
 
         self.update_button.configure(state="normal")
         self.delete_button.configure(state="normal")
@@ -209,6 +226,7 @@ class ClientsView(ctk.CTkFrame):
         self.selected_client_id = None
 
         self.name_entry.delete(0, "end")
+        self.cpf_entry.delete(0, "end")
         self.phone_entry.delete(0, "end")
         self.limit_entry.delete(0, "end")
 
@@ -222,12 +240,39 @@ class ClientsView(ctk.CTkFrame):
         self.save_button.configure(state="normal")
         self.editing_label.configure(text=" ")
 
-    def only_digits_phone(self, _event=None):
-        current_value = self.phone_entry.get()
-        numeric_value = re.sub(r"\D", "", current_value)
-        if current_value != numeric_value:
+    def format_cpf(self, value):
+        digits = re.sub(r"\D", "", str(value or ""))[:11]
+        if len(digits) <= 3:
+            return digits
+        if len(digits) <= 6:
+            return f"{digits[:3]}.{digits[3:]}"
+        if len(digits) <= 9:
+            return f"{digits[:3]}.{digits[3:6]}.{digits[6:]}"
+        return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:11]}"
+
+    def format_phone(self, value):
+        digits = re.sub(r"\D", "", str(value or ""))[:11]
+        if len(digits) <= 2:
+            return digits
+        if len(digits) <= 6:
+            return f"({digits[:2]}) {digits[2:]}"
+        if len(digits) == 10:
+            return f"({digits[:2]}) {digits[2:6]}-{digits[6:10]}"
+        if len(digits) == 11:
+            return f"({digits[:2]}) {digits[2:7]}-{digits[7:11]}"
+        return f"({digits[:2]}) {digits[2:]}"
+
+    def mask_phone(self, _event=None):
+        masked = self.format_phone(self.phone_entry.get())
+        if self.phone_entry.get() != masked:
             self.phone_entry.delete(0, "end")
-            self.phone_entry.insert(0, numeric_value)
+            self.phone_entry.insert(0, masked)
+
+    def mask_cpf(self, _event=None):
+        masked = self.format_cpf(self.cpf_entry.get())
+        if self.cpf_entry.get() != masked:
+            self.cpf_entry.delete(0, "end")
+            self.cpf_entry.insert(0, masked)
 
     def show_error(self, message):
         self.validation_label.configure(text=message, text_color="red")
