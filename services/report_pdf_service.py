@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+import re
 
 from database.connection import get_connection
 from services.dashboard_service import get_dashboard_data
@@ -22,6 +23,12 @@ def _timestamp():
 
 def _format_currency(amount):
     return f"R$ {amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def _sanitize_filename(text):
+    sanitized = re.sub(r"[^a-zA-Z0-9_-]+", "_", text.strip().lower())
+    sanitized = re.sub(r"_+", "_", sanitized).strip("_")
+    return sanitized or "cliente"
 
 
 def _base_table_style():
@@ -77,6 +84,7 @@ def _get_balances_data():
     cursor.execute(
         """
         SELECT
+            c.id AS client_id,
             c.name AS client_name,
             COALESCE((SELECT SUM(s.amount) FROM sales s WHERE s.client_id = c.id), 0) AS total_sold,
             COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_paid,
@@ -108,9 +116,10 @@ def export_balances_pdf():
 
     table_data = [["Cliente", "Vendido", "Recebido", "Em Aberto"]]
     for row in rows:
+        client_label = f"{row['client_name']} (#{row['client_id']})"
         table_data.append(
             [
-                row["client_name"],
+                client_label,
                 _format_currency(row["total_sold"]),
                 _format_currency(row["total_paid"]),
                 _format_currency(row["total_open"]),
@@ -151,7 +160,7 @@ def _get_client_statement_data(client_id):
 def export_client_statement_pdf(client_id, client_name):
     rows = _get_client_statement_data(client_id)
 
-    report_path = _reports_dir() / f"extrato_{client_name.replace(' ', '_').lower()}_{_timestamp()}.pdf"
+    report_path = _reports_dir() / f"extrato_{_sanitize_filename(client_name)}_{_timestamp()}.pdf"
     doc = SimpleDocTemplate(str(report_path), pagesize=A4)
     styles = getSampleStyleSheet()
 

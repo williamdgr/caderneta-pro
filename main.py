@@ -4,9 +4,15 @@ from ui.splash_screen import SplashScreen
 from ui.license_activation_window import LicenseActivationWindow
 from licence.licences import possui_arquivo_licenca
 from app_paths import get_asset_path
+from services.backup_service import create_startup_backup
 
 if __name__ == "__main__":
     init_db()
+
+    try:
+        create_startup_backup(max_files=7)
+    except Exception:
+        pass
 
     splash_path = get_asset_path("splash.png")
     icon_path = get_asset_path("icone.ico")

@@ -6,6 +6,7 @@ from ui.clients_view import ClientsView
 from ui.sales_view import SalesView
 from ui.payments_view import PaymentsView
 from ui.reports_view import ReportsView
+from ui.backup_view import BackupView
 
 class MainWindow(ctk.CTk):
 
@@ -42,6 +43,16 @@ class MainWindow(ctk.CTk):
         for label, action in nav_buttons:
             ctk.CTkButton(self.sidebar, text=label, command=action).pack(pady=5, padx=10, fill="x")
 
+        self.backup_label = ctk.CTkLabel(
+            self.sidebar,
+            text="Gerenciar Backup",
+            font=("Arial", 13, "underline"),
+            text_color="#3B82F6",
+            cursor="hand2",
+        )
+        self.backup_label.pack(pady=(14, 0))
+        self.backup_label.bind("<Button-1>", lambda _event: self.show_backup())
+
         self.main_area = ctk.CTkFrame(self)
         self.main_area.pack(side="right", fill="both", expand=True)
 
@@ -70,6 +81,10 @@ class MainWindow(ctk.CTk):
     def show_reports(self):
         self.clear()
         ReportsView(self.main_area)
+
+    def show_backup(self):
+        self.clear()
+        BackupView(self.main_area)
 
     def set_app_icon(self):
         icon_path = get_asset_path("icone.ico")

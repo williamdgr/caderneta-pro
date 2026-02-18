@@ -30,9 +30,8 @@ class ReportsView(ctk.CTkFrame):
         ctk.CTkButton(general_buttons, text="Posição Financeira (PDF)", command=self.generate_financial_position_pdf).pack(side="left", padx=(0, 8))
         ctk.CTkButton(general_buttons, text="Saldos por Cliente (PDF)", command=self.generate_balances_pdf).pack(side="left")
 
-        self.clients = get_all_clients()
-        self.client_dict = {c["name"]: c["id"] for c in self.clients}
-        client_values = list(self.client_dict.keys()) if self.client_dict else ["Selecione"]
+        self.client_dict = {}
+        client_values = ["Selecione"]
 
         client_actions = ctk.CTkFrame(actions)
         client_actions.pack(fill="x", padx=10, pady=(0, 10))
@@ -46,6 +45,7 @@ class ReportsView(ctk.CTkFrame):
         self.client_option = ctk.CTkOptionMenu(client_controls, values=client_values)
         self.client_option.set("Selecione")
         self.client_option.pack(side="left", padx=(0, 8))
+        self.refresh_clients_options()
 
         ctk.CTkButton(client_controls, text="Gerar Extrato (PDF)", command=self.generate_client_statement_pdf).pack(side="left")
 
@@ -77,7 +77,8 @@ class ReportsView(ctk.CTkFrame):
         cursor = conn.cursor()
 
         cursor.execute("""
-            SELECT c.name,
+            SELECT c.id,
+                   c.name,
                    COALESCE(SUM(s.amount),0) - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id),0) as saldo
             FROM clients c
             LEFT JOIN sales s ON c.id = s.client_id
@@ -91,8 +92,21 @@ class ReportsView(ctk.CTkFrame):
         for row in rows:
             if row["saldo"] > 0:
                 tag = "evenrow" if visible_idx % 2 == 0 else "oddrow"
-                self.tree.insert("", "end", values=(row["name"], row["saldo"]), tags=(tag,))
+                client_label = f"{row['name']} (#{row['id']})"
+                self.tree.insert("", "end", values=(client_label, self.format_currency(row["saldo"])), tags=(tag,))
                 visible_idx += 1
+
+    def format_currency(self, value):
+        amount = float(value or 0)
+        return f"R$ {amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def refresh_clients_options(self):
+        clients = get_all_clients()
+        self.client_dict = {f"{c['name']} (#{c['id']})": c["id"] for c in clients}
+
+        option_values = list(self.client_dict.keys()) if self.client_dict else ["Selecione"]
+        self.client_option.configure(values=option_values)
+        self.client_option.set("Selecione")
 
     def generate_financial_position_pdf(self):
         try:

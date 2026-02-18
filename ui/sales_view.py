@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk
 import re
+from datetime import datetime
 from services.sale_service import create_sale, get_all_sales
 from services.client_service import get_all_clients
 
@@ -15,13 +16,12 @@ class SalesView(ctk.CTkFrame):
         form = ctk.CTkFrame(self)
         form.pack(pady=10)
 
-        self.clients = get_all_clients()
-        self.client_dict = {c["name"]: c["id"] for c in self.clients}
-        option_values = list(self.client_dict.keys()) if self.client_dict else ["Selecione"]
-
-        self.client_option = ctk.CTkOptionMenu(form, values=option_values)
+        self.client_dict = {}
+        self.client_label_by_id = {}
+        self.client_option = ctk.CTkOptionMenu(form, values=["Selecione"])
         self.client_option.set("Selecione")
         self.client_option.pack(side="left", padx=5)
+        self.refresh_clients_options()
 
         self.amount_entry = ctk.CTkEntry(form, placeholder_text="Valor da venda")
         self.amount_entry.pack(side="left", padx=5)
@@ -46,6 +46,8 @@ class SalesView(ctk.CTkFrame):
         self.load_sales()
 
     def save_sale(self):
+        self.refresh_clients_options(keep_selection=True)
+
         client_name = self.client_option.get()
         if client_name not in self.client_dict:
             self.show_error("Erro: selecione um cliente.")
@@ -67,6 +69,37 @@ class SalesView(ctk.CTkFrame):
         self.load_sales()
         self.show_success("Venda salva com sucesso.")
 
+    def refresh_clients_options(self, keep_selection=False):
+        current_selection = self.client_option.get() if keep_selection else "Selecione"
+
+        clients = get_all_clients()
+        self.client_dict = {}
+        self.client_label_by_id = {}
+
+        for client in clients:
+            client_id = client["id"]
+            display_label = f"{client['name']} (#{client_id})"
+            self.client_dict[display_label] = client_id
+            self.client_label_by_id[client_id] = display_label
+
+        option_values = list(self.client_dict.keys()) if self.client_dict else ["Selecione"]
+
+        self.client_option.configure(values=option_values)
+
+        selected_client_id = None
+        if keep_selection and current_selection in self.client_dict:
+            selected_client_id = self.client_dict[current_selection]
+        elif keep_selection:
+            match = re.search(r"\(#(\d+)\)$", current_selection)
+            if match:
+                selected_client_id = int(match.group(1))
+
+        restored_selection = "Selecione"
+        if selected_client_id is not None:
+            restored_selection = self.client_label_by_id.get(selected_client_id, "Selecione")
+
+        self.client_option.set(restored_selection)
+
     def load_sales(self):
         for row in self.tree.get_children():
             self.tree.delete(row)
@@ -76,9 +109,30 @@ class SalesView(ctk.CTkFrame):
             self.tree.insert(
                 "",
                 "end",
-                values=(sale["id"], sale["client_name"], sale["amount"], sale["date"]),
+                values=(
+                    sale["id"],
+                    sale["client_name"],
+                    self.format_currency(sale["amount"]),
+                    self.format_date(sale["date"]),
+                ),
                 tags=(tag,)
             )
+
+    def format_currency(self, value):
+        amount = float(value or 0)
+        return f"R$ {amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def format_date(self, value):
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return ""
+
+        date_part = raw_value.split(" ")[0]
+        try:
+            parsed = datetime.strptime(date_part, "%Y-%m-%d")
+            return parsed.strftime("%d/%m/%Y")
+        except ValueError:
+            return raw_value
 
     def show_error(self, message):
         self.validation_label.configure(text=message, text_color="red")
