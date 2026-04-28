@@ -14,19 +14,23 @@ class SalesView(ctk.CTkFrame):
         ctk.CTkLabel(self, text="Registrar Venda", font=("Arial",22,"bold")).pack(pady=20)
 
         form = ctk.CTkFrame(self)
-        form.pack(pady=10)
+        form.pack(fill="x", padx=20, pady=10)
+        form.grid_columnconfigure(1, weight=1)
 
         self.client_dict = {}
         self.client_label_by_id = {}
         self.client_option = ctk.CTkOptionMenu(form, values=["Selecione"])
         self.client_option.set("Selecione")
-        self.client_option.pack(side="left", padx=5)
+        self.client_option.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         self.refresh_clients_options()
 
-        self.amount_entry = ctk.CTkEntry(form, placeholder_text="Valor da venda")
-        self.amount_entry.pack(side="left", padx=5)
+        self.description_entry = ctk.CTkEntry(form, placeholder_text="Descricao do que foi vendido")
+        self.description_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
-        ctk.CTkButton(form, text="Salvar", command=self.save_sale).pack(side="left", padx=5)
+        self.amount_entry = ctk.CTkEntry(form, placeholder_text="Valor da venda")
+        self.amount_entry.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+
+        ctk.CTkButton(form, text="Salvar", command=self.save_sale).grid(row=0, column=3, padx=5, pady=5)
 
         self.validation_label = ctk.CTkLabel(self, text="", text_color="red")
         self.validation_label.pack(pady=(2, 8))
@@ -35,10 +39,20 @@ class SalesView(ctk.CTkFrame):
         style.configure("Table.Treeview", rowheight=28, borderwidth=1, relief="solid")
         style.configure("Table.Treeview.Heading", relief="solid")
 
-        self.tree = ttk.Treeview(self, columns=("ID", "Cliente", "Valor", "Data"), show="headings", style="Table.Treeview")
-        for col in ("ID", "Cliente", "Valor", "Data"):
+        self.tree = ttk.Treeview(
+            self,
+            columns=("ID", "Cliente", "Descricao", "Valor", "Data"),
+            show="headings",
+            style="Table.Treeview",
+        )
+        for col in ("ID", "Cliente", "Descricao", "Valor", "Data"):
             self.tree.heading(col, text=col, anchor="center")
             self.tree.column(col, anchor="center")
+        self.tree.column("ID", width=70, stretch=False)
+        self.tree.column("Cliente", width=220)
+        self.tree.column("Descricao", width=320)
+        self.tree.column("Valor", width=120, stretch=False)
+        self.tree.column("Data", width=120, stretch=False)
         self.tree.tag_configure("evenrow", background="#FFFFFF")
         self.tree.tag_configure("oddrow", background="#F3F4F6")
         self.tree.pack(fill="both", expand=True, padx=20, pady=20)
@@ -53,6 +67,11 @@ class SalesView(ctk.CTkFrame):
             self.show_error("Erro: selecione um cliente.")
             return
 
+        description = (self.description_entry.get() or "").strip()
+        if not description:
+            self.show_error("Erro: informe a descricao da venda.")
+            return
+
         raw_amount = (self.amount_entry.get() or "").strip()
         if not raw_amount:
             self.show_error("Erro: informe o valor da venda.")
@@ -64,7 +83,8 @@ class SalesView(ctk.CTkFrame):
 
         amount = float(raw_amount.replace(",", "."))
         self.clear_feedback()
-        create_sale(self.client_dict[client_name], amount)
+        create_sale(self.client_dict[client_name], description, amount)
+        self.description_entry.delete(0,"end")
         self.amount_entry.delete(0,"end")
         self.load_sales()
         self.show_success("Venda salva com sucesso.")
@@ -112,6 +132,7 @@ class SalesView(ctk.CTkFrame):
                 values=(
                     sale["id"],
                     sale["client_name"],
+                    sale["description"],
                     self.format_currency(sale["amount"]),
                     self.format_date(sale["date"]),
                 ),

@@ -23,11 +23,17 @@ def init_db():
         CREATE TABLE IF NOT EXISTS sales (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             client_id INTEGER,
+            description TEXT NOT NULL DEFAULT '',
             amount REAL,
             date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (client_id) REFERENCES clients(id)
         )
     """)
+
+    cursor.execute("PRAGMA table_info(sales)")
+    sales_columns = [column["name"] for column in cursor.fetchall()]
+    if "description" not in sales_columns:
+        cursor.execute("ALTER TABLE sales ADD COLUMN description TEXT NOT NULL DEFAULT ''")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS payments (
