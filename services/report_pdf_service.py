@@ -66,7 +66,7 @@ def export_financial_position_pdf():
     elements = [
         Paragraph("Posição Financeira", styles["Title"]),
         Spacer(1, 8),
-        Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
+        Paragraph(f"<b>Gerado em:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
         Spacer(1, 16),
     ]
 
@@ -119,7 +119,7 @@ def export_balances_pdf():
     elements = [
         Paragraph("Saldos por Cliente", styles["Title"]),
         Spacer(1, 8),
-        Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
+        Paragraph(f"<b>Gerado em:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
         Spacer(1, 16),
     ]
 
@@ -169,7 +169,19 @@ def _get_client_statement_data(client_id):
 def _get_client_basic_data(client_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT name, cpf FROM clients WHERE id = ?", (client_id,))
+    cursor.execute(
+        """
+        SELECT
+            c.name,
+            c.cpf,
+            COALESCE(c.credit_limit, 0) AS credit_limit,
+            COALESCE((SELECT SUM(s.amount) FROM sales s WHERE s.client_id = c.id), 0)
+            - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_open
+        FROM clients c
+        WHERE c.id = ?
+        """,
+        (client_id,),
+    )
     row = cursor.fetchone()
     conn.close()
     return row
@@ -179,6 +191,10 @@ def export_client_statement_pdf(client_id, client_name):
     client_data = _get_client_basic_data(client_id)
     display_name = client_data["name"] if client_data and client_data["name"] else client_name
     cpf_display = _format_cpf(client_data["cpf"] if client_data else "")
+    credit_limit = float(client_data["credit_limit"] if client_data else 0)
+    total_open = float(client_data["total_open"] if client_data else 0)
+    available_to_spend = credit_limit - total_open
+    available_label = "Saldo disponível para gastar"
 
     rows = _get_client_statement_data(client_id)
 
@@ -189,9 +205,11 @@ def export_client_statement_pdf(client_id, client_name):
     elements = [
         Paragraph("Extrato do Cliente", styles["Title"]),
         Spacer(1, 8),
-        Paragraph(f"Cliente: {display_name}", styles["Normal"]),
-        Paragraph(f"CPF: {cpf_display}", styles["Normal"]),
-        Paragraph(f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
+        Paragraph(f"<b>Cliente:</b> {display_name}", styles["Normal"]),
+        Paragraph(f"<b>CPF:</b> {cpf_display}", styles["Normal"]),
+        Paragraph(f"<b>Limite do cliente:</b> {_format_currency(credit_limit)}", styles["Normal"]),
+        Paragraph(f"<b>{available_label}:</b> {_format_currency(available_to_spend)}", styles["Normal"]),
+        Paragraph(f"<b>Gerado em:</b> {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles["Normal"]),
         Spacer(1, 16),
     ]
 

@@ -25,6 +25,7 @@ class PaymentsView(ctk.CTkFrame):
 
         self.amount_entry = ctk.CTkEntry(form, placeholder_text="Valor recebido")
         self.amount_entry.pack(side="left", padx=5)
+        self.amount_entry.bind("<KeyRelease>", self.mask_amount)
 
         ctk.CTkButton(form, text="Registrar", command=self.save_payment).pack(side="left", padx=5)
 
@@ -53,7 +54,7 @@ class PaymentsView(ctk.CTkFrame):
             self.show_error("Erro: selecione um cliente.")
             return
 
-        raw_amount = (self.amount_entry.get() or "").strip()
+        raw_amount = self.parse_currency(self.amount_entry.get())
         if not raw_amount:
             self.show_error("Erro: informe o valor recebido.")
             return
@@ -121,6 +122,27 @@ class PaymentsView(ctk.CTkFrame):
     def format_currency(self, value):
         amount = float(value or 0)
         return f"R$ {amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    def parse_currency(self, value):
+        if value is None:
+            return ""
+        cleaned = str(value).replace("R$", "").strip()
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+        return cleaned
+
+    def mask_currency_value(self, value):
+        digits = re.sub(r"\D", "", str(value or ""))
+        if not digits:
+            return ""
+        amount = int(digits) / 100
+        return self.format_currency(amount)
+
+    def mask_amount(self, _event=None):
+        masked = self.mask_currency_value(self.amount_entry.get())
+        if self.amount_entry.get() != masked:
+            self.amount_entry.delete(0, "end")
+            if masked:
+                self.amount_entry.insert(0, masked)
 
     def format_date(self, value):
         raw_value = str(value or "").strip()

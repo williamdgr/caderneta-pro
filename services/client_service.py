@@ -3,7 +3,20 @@ from database.connection import get_connection
 def get_all_clients():
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM clients ORDER BY name ASC, id ASC")
+    cursor.execute(
+        """
+        SELECT
+            c.*,
+            COALESCE((SELECT SUM(s.amount) FROM sales s WHERE s.client_id = c.id), 0)
+            - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0) AS total_open,
+            COALESCE(c.credit_limit, 0) - (
+                COALESCE((SELECT SUM(s.amount) FROM sales s WHERE s.client_id = c.id), 0)
+                - COALESCE((SELECT SUM(p.amount) FROM payments p WHERE p.client_id = c.id), 0)
+            ) AS available_balance
+        FROM clients c
+        ORDER BY c.name ASC, c.id ASC
+        """
+    )
     rows = cursor.fetchall()
     conn.close()
     return rows

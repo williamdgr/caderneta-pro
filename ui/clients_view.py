@@ -42,6 +42,7 @@ class ClientsView(ctk.CTkFrame):
 
         self.limit_entry = ctk.CTkEntry(fields_row, placeholder_text="Limite Crédito")
         self.limit_entry.pack(side="left", padx=5)
+        self.limit_entry.bind("<KeyRelease>", self.mask_limit)
 
         self.save_button = ctk.CTkButton(buttons_row, text="Salvar", command=self.save_client)
         self.save_button.pack(side="left", padx=5)
@@ -62,8 +63,8 @@ class ClientsView(ctk.CTkFrame):
         style.configure("Table.Treeview", rowheight=28, borderwidth=1, relief="solid")
         style.configure("Table.Treeview.Heading", relief="solid")
 
-        self.tree = ttk.Treeview(self, columns=("ID","Nome","CPF","Telefone","Limite"), show="headings", style="Table.Treeview")
-        for col in ("ID","Nome","CPF","Telefone","Limite"):
+        self.tree = ttk.Treeview(self, columns=("ID","Nome","CPF","Telefone","Limite","Saldo"), show="headings", style="Table.Treeview")
+        for col in ("ID","Nome","CPF","Telefone","Limite","Saldo"):
             self.tree.heading(col, text=col, anchor="center")
             self.tree.column(col, anchor="center")
         self.tree.bind("<<TreeviewSelect>>", self.on_select_client)
@@ -81,12 +82,14 @@ class ClientsView(ctk.CTkFrame):
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             display_name = f"{client['name']}"
             display_limit = self.format_currency(client["credit_limit"])
+            display_balance = self.format_currency(client["available_balance"])
             self.tree.insert("", "end", values=(
                 client["id"],
                 display_name,
                 self.format_cpf(client["cpf"]),
                 self.format_phone(client["phone"]),
-                display_limit
+                display_limit,
+                display_balance
             ), tags=(tag,))
 
     def format_currency(self, value):
@@ -100,11 +103,18 @@ class ClientsView(ctk.CTkFrame):
         cleaned = cleaned.replace(".", "").replace(",", ".")
         return cleaned
 
+    def mask_currency_value(self, value):
+        digits = re.sub(r"\D", "", str(value or ""))
+        if not digits:
+            return ""
+        amount = int(digits) / 100
+        return self.format_currency(amount)
+
     def validate_form(self):
         name = self.name_entry.get().strip()
         cpf = re.sub(r"\D", "", self.cpf_entry.get().strip())
         phone = re.sub(r"\D", "", self.phone_entry.get().strip())
-        raw_limit = (self.limit_entry.get() or "").strip()
+        raw_limit = self.parse_currency(self.limit_entry.get())
 
         if not name:
             self.show_error("Erro: informe o nome.")
@@ -213,7 +223,7 @@ class ClientsView(ctk.CTkFrame):
         self.phone_entry.insert(0, values[3])
 
         self.limit_entry.delete(0, "end")
-        self.limit_entry.insert(0, self.parse_currency(values[4]))
+        self.limit_entry.insert(0, values[4])
 
         self.update_button.configure(state="normal")
         self.delete_button.configure(state="normal")
@@ -273,6 +283,13 @@ class ClientsView(ctk.CTkFrame):
         if self.cpf_entry.get() != masked:
             self.cpf_entry.delete(0, "end")
             self.cpf_entry.insert(0, masked)
+
+    def mask_limit(self, _event=None):
+        masked = self.mask_currency_value(self.limit_entry.get())
+        if self.limit_entry.get() != masked:
+            self.limit_entry.delete(0, "end")
+            if masked:
+                self.limit_entry.insert(0, masked)
 
     def show_error(self, message):
         self.validation_label.configure(text=message, text_color="red")
